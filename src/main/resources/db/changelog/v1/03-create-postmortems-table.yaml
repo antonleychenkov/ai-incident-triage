@@ -1,0 +1,33 @@
+databaseChangeLog:
+  - changeSet:
+      id: createPostmortemsTable
+      author: anton_l
+      changes:
+        - createTable:
+            tableName: postmortems
+            columns:
+              - column:
+                  name: id
+                  type: bigserial
+                  constraints:
+                    primaryKey: true
+              - column:
+                  name: incident_id
+                  type: bigint
+                  constraints:
+                    nullable: false
+                    unique: true
+                    foreignKeyName: fk_postmortems_incident
+                    references: incidents(id)
+                    deleteCascade: true
+              - column:
+                  name: markdown_report
+                  type: text
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_at
+                  type: timestamp
+                  defaultValueComputed: CURRENT_TIMESTAMP
+                  constraints:
+                    nullable: false

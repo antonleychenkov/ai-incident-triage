@@ -3,6 +3,7 @@ package ru.leychenkov.triage.listener;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.annotation.DltHandler;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.annotation.RetryableTopic;
@@ -25,12 +26,16 @@ public class AiTriageListener {
     private final ChatClient.Builder chatClientBuilder;
     private final IncidentRepository incidentRepository;
 
+
+    @Value("${app.triage.max-stacktrace-length:3000}")
+    private int maxStacktraceLength;
+
     @RetryableTopic(
             attempts = "3",
             backoff = @Backoff(delay = 2000, multiplier = 2.0),
             dltTopicSuffix = ".DLT"
     )
-    @KafkaListener(topics = DeduplicationListener.ANALYZE_TOPIC, groupId = "ai-triage-group")
+    @KafkaListener(topics = "${app.kafka.topics.incidents-to-analyze}", groupId = "${app.kafka.groups.ai-triage}")
     @Transactional
     public void analyzeIncident(IncidentAnalyzeEvent event) {
         log.info("Начинаю ИИ-анализ инцидента #{} ({})", event.getIncidentId(), event.getExceptionClass());
@@ -52,7 +57,7 @@ public class AiTriageListener {
                         .param("service", event.getServiceName())
                         .param("exception", event.getExceptionClass())
                         .param("message", event.getErrorMessage() != null ? event.getErrorMessage() : "N/A")
-                        .param("stacktrace", truncateStackTrace(event.getCleanStackTrace(), 3000)))
+                        .param("stacktrace", truncateStackTrace(event.getCleanStackTrace(), maxStacktraceLength)))
                 .call()
                 .entity(IncidentAnalysisResult.class);
 
@@ -74,10 +79,10 @@ public class AiTriageListener {
         incidentRepository.updateStatus(event.getIncidentId(), Status.ANALYSIS_FAILED);
     }
 
-    private String truncateStackTrace(String stackTrace, int maxChars) {
-        if (stackTrace == null || stackTrace.length() <= maxChars) {
+    private String truncateStackTrace(String stackTrace, int maxStacktraceLength) {
+        if (stackTrace == null || stackTrace.length() <= maxStacktraceLength) {
             return stackTrace;
         }
-        return stackTrace.substring(0, maxChars) + "\n... [truncated]";
+        return stackTrace.substring(0, maxStacktraceLength) + "\n... [truncated]";
     }
 }

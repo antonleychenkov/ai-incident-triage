@@ -3,6 +3,7 @@ package ru.leychenkov.triage.listener;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.codec.digest.DigestUtils;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.core.KafkaTemplate;
@@ -26,15 +27,18 @@ import java.time.LocalDateTime;
 @RequiredArgsConstructor
 public class DeduplicationListener {
 
-    public static final String ANALYZE_TOPIC = "incidents-to-analyze";
-    private static final Duration DEDUP_TTL = Duration.ofMinutes(15);
-
     private final StringRedisTemplate redisTemplate;
     private final IncidentRepository incidentRepository;
     private final ErrorLogRepository errorLogRepository;
     private final KafkaTemplate<String, Object> kafkaTemplate;
 
-    @KafkaListener(topics = ErrorProducerService.RAW_ERRORS_TOPIC, groupId = "deduplication-group")
+    @Value("${app.kafka.topics.incidents-to-analyze}")
+    private String analyzeTopic;
+
+    @Value("${app.triage.cache-ttl-minutes:15}")
+    private long cacheTtlMinutes;
+
+    @KafkaListener(topics = "${app.kafka.topics.raw-errors}", groupId = "${app.kafka.groups.deduplication}")
     @Transactional
     public void handleRawError(RawErrorEvent event) {
         String fingerprint = calculateFingerprint(
@@ -65,7 +69,7 @@ public class DeduplicationListener {
                 now
         );
 
-        redisTemplate.opsForValue().set(redisKey, incident.getId().toString(), DEDUP_TTL);
+        redisTemplate.opsForValue().set(redisKey, incident.getId().toString(), cacheTtlMinutes);
         saveErrorLog(incident.getId(), event, now);
 
 
@@ -78,7 +82,7 @@ public class DeduplicationListener {
                     .cleanStackTrace(incident.getSampleStacktrace())
                     .build();
 
-            kafkaTemplate.send(ANALYZE_TOPIC, incident.getId().toString(), analyzeEvent);
+            kafkaTemplate.send(analyzeTopic, incident.getId().toString(), analyzeEvent);
         }
     }
 

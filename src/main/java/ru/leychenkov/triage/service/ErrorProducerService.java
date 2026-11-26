@@ -2,6 +2,7 @@ package ru.leychenkov.triage.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import ru.leychenkov.triage.event.RawErrorEvent;
@@ -13,9 +14,11 @@ import java.time.Instant;
 @RequiredArgsConstructor
 public class ErrorProducerService {
 
-    public static final String RAW_ERRORS_TOPIC = "raw-errors";
-
     private final KafkaTemplate<String, Object> kafkaTemplate;
+
+
+    @Value("${app.kafka.topics.raw-errors}")
+    private String rawErrorsTopic;
 
     public void send(RawErrorEvent rawEvent) {
         String hiddenStackTrace = hideSecrets(rawEvent.getStackTrace());
@@ -31,7 +34,7 @@ public class ErrorProducerService {
                 .occurredAt(rawEvent.getOccurredAt() != null ? rawEvent.getOccurredAt() : Instant.now())
                 .build();
 
-        kafkaTemplate.send(RAW_ERRORS_TOPIC, sanitized.getServiceName(), sanitized);
+        kafkaTemplate.send(rawErrorsTopic, sanitized.getServiceName(), sanitized);
     }
 
     private String hideSecrets(String input) {

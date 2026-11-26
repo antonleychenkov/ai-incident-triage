@@ -1,0 +1,55 @@
+spring:
+  application:
+    name: incident-triage
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/incident_triage
+    username: postgres
+    password: secret
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: true
+
+  liquibase:
+    change-log: classpath:db/changelog/db.changelog-master.yaml
+
+  data:
+    redis:
+      host: localhost
+      port: 6379
+
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+    consumer:
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "ru.leychenkov.triage.*"
+
+  ai:
+    openai:
+      base-url: ${AI_BASE_URL:https://openrouter.ai}
+      api-key: ${AI_API_KEY:api_key}
+      chat:
+        options:
+          model: ${AI_MODEL:openai/gpt-4o-mini}
+          temperature: 0.2
+
+app:
+  kafka:
+    topics:
+      raw-errors: raw-errors
+      incidents-to-analyze: incidents-to-analyze
+    groups:
+      deduplication: deduplication-group
+      ai-triage: ai-triage-group
+  triage:
+    cache-ttl-minutes: 15
+    max-stacktrace-length: 3000
