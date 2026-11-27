@@ -69,7 +69,7 @@ public class DeduplicationListener {
                 now
         );
 
-        redisTemplate.opsForValue().set(redisKey, incident.getId().toString(), cacheTtlMinutes);
+        redisTemplate.opsForValue().set(redisKey, incident.getId().toString(), Duration.ofMinutes(cacheTtlMinutes));
         saveErrorLog(incident.getId(), event, now);
 
 
